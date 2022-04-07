@@ -10,6 +10,8 @@ register - POST request: return new user object
 const express = require('express');
 //getting bcrypt node js
 const bcrypt = require('bcrypt-nodejs');
+//getting cors package
+const cors = require('cors');
 
 const app = express();
 
@@ -19,19 +21,24 @@ const app = express();
 app.use(express.urlencoded({extended: false}));
 app.use(express.json());
 
+//using cors to allow cross-origin resource share
+app.use(cors());
+
 const database = {
     users: [
         {
             id: 123,
-            name: 'john',
+            username: 'john',
             email: 'john@gmail.com',
+            password: 'passcode',
             entries: 0, //will be used to track score of photo submissions
             joined: new Date()
         },
         {
             id: 143,
-            name: 'james',
+            username: 'james',
             email: 'james@gmail.com',
+            password: 'passedcode',
             entries: 0, //will be used to track score of photo submissions
             joined: new Date()
         }
@@ -50,31 +57,31 @@ app.get('/', (req, res) => {
     res.send(database.users);
 });
 
-//Signin route
+//SIGNIN ROUTE
 //checking if the database matches request
 app.post('/signin', (req, res) => {
         // Load hash from your password DB.
-    bcrypt.compare("passedcode", '$2a$10$hmReqQwpvqrLwscYDkivxulLgQwxscfnSk2O5zuO82bRtGg/j1lBa', function(err, res) {
-        // res == true
-        console.log('my first try', res);
-    });
-    bcrypt.compare("veggies", '$2a$10$hmReqQwpvqrLwscYDkivxulLgQwxscfnSk2O5zuO82bRtGg/j1lBa', function(err, res) {
-        // res = false
-        console.log('my second try', res);
-    });
+    // bcrypt.compare("passedcode", '$2a$10$hmReqQwpvqrLwscYDkivxulLgQwxscfnSk2O5zuO82bRtGg/j1lBa', function(err, res) {
+    //     // res == true
+    //     console.log('my first try', res);
+    // });
+    // bcrypt.compare("veggies", '$2a$10$hmReqQwpvqrLwscYDkivxulLgQwxscfnSk2O5zuO82bRtGg/j1lBa', function(err, res) {
+    //     // res = false
+    //     console.log('my second try', res);
+    // });
 
     if(req.body.email === database.users[0].email && req.body.password === database.users[0].password){
-        res.json('success');
+        res.json(database.users[0]);
     } else {
         res.status(400).json('error logging in');
     }
 });
 
-//Register route
+//REGISTER ROUTE
 app.post('/register', (req, res) => {
     //destructuring to grab properties from the request body:
-    const { email, password, name } = req.body;
-    //hash function
+    const { email, password, username } = req.body;
+    //hash function to hash password with bcrypt
     // bcrypt.hash(password, null, null, function(err, hash) {
     //     // Store hash in your password DB.
     //     console.log(hash);
@@ -82,9 +89,8 @@ app.post('/register', (req, res) => {
     database.users.push(
         {
             id: 133,
-            name: name,
+            username: username,
             email: email,
-            password: password,
             entries: 0, //will be used to track score of photo submissions
             joined: new Date()
         }
