@@ -12,9 +12,16 @@ const express = require('express');
 const bcrypt = require('bcrypt-nodejs');
 //getting cors package
 const cors = require('cors');
-//importing / initializing knex
+//importing knex
 const knex = require('knex');
 
+//importing controllers
+const register = require('./controllers/register');
+const signin = require('./controllers/signin');
+const profile = require('./controllers/profile');
+const image = require('./controllers/image');
+
+//initializing db with knex
 const db = knex({
     client: 'pg',
     connection: {
@@ -33,9 +40,9 @@ const db = knex({
 
 const app = express();
 
-//Inbuilt express middleware similar to body parser, which parse request
-//Btter than installing extra bodyparser dependency
-//Always remember this to avoid errors in check request with database
+/* Inbuilt express middleware similar to body parser, which parse request
+Better than installing extra bodyparser dependency
+Always remember this to avoid errors in check request with database */
 app.use(express.urlencoded({extended: false}));
 app.use(express.json());
 
@@ -77,109 +84,25 @@ app.get('/', (req, res) => {
 });
 
 //SIGNIN ROUTE
-//checking if the database matches request
-app.post('/signin', (req, res) => {
-    // Compare function Load hash from your password DB async way.
-    // bcrypt.compare("passedcode", '$2a$10$hmReqQwpvqrLwscYDkivxulLgQwxscfnSk2O5zuO82bRtGg/j1lBa', function(err, res) {
-    //     // res == true
-    //     console.log('my first try', res);
-    // });
-    // bcrypt.compare("veggies", '$2a$10$hmReqQwpvqrLwscYDkivxulLgQwxscfnSk2O5zuO82bRtGg/j1lBa', function(err, res) {
-    //     // res = false
-    //     console.log('my second try', res);
-    // });
-
-    db.select('email', 'hash').from('login')
-        .where('email', '=', req.body.email)
-        .then(data => {
-            const isValid = bcrypt.compareSync(req.body.password, data[0].hash); //bcrypt synchronous compare function
-            if(isValid){
-                return db.select('*').from('users') //always be sure to return this
-                .where('email', '=', req.body.email)
-                .then(user => {
-                    res.json(user[0])
-                })
-                .catch(err => res.status(400).json('unable to get user'))
-            } else{
-                res.status(400).json('wrong credentials');
-            }
-        })
-        .catch(err => res.status(400).json('wrong credentials'))
-});
+//injecting dependency of handleSignin function 
+app.post('/signin', (req, res) => { signin.handleSignin(req, res, db, bcrypt) });
 
 //REGISTER ROUTE
-app.post('/register', (req, res) => {
-    //destructuring to grab properties from the request body:
-    const { email, password, username } = req.body;
-    //async hash function to hash password with bcrypt
-    // bcrypt.hash(password, null, null, function(err, hash) {
-    //     // Store hash in your password DB.
-    //     console.log(hash);
-    // });
-
-    //Storing with bcrypt synchronous way
-    const hash = bcrypt.hashSync(password);
-
-    db.transaction(trx => {
-        trx.insert({
-            hash: hash,
-            email: email
-        })
-    .into('login')
-    .returning('email')
-    .then(loginEmail => {
-            return trx('users') //always be sure to return this
-            .returning('*')
-            .insert({
-                name: username,
-                email: loginEmail[0].email, 
-                joined: new Date()
-            })
-            .then(user => {
-                res.json(user[0]);
-            })
-        })
-        .then(trx.commit)
-        .catch(trx.rollback)
-    })
-    .catch(err => res.status(400).json('unable to register')) //'unable to join' is better security-wise
-});
+//injecting dependency of handleRegister function 
+app.post('/register', (req, res) => { register.handleRegister(req, res, db, bcrypt) });
 
 //profile/:userID route
-//looping through datatbase to find matching ID
-app.get('/profile/:id', (req, res) => {
-    //destructuring to get id varaible(property) from params
-    const { id } = req.params;
-    //looping through user array to check user with id
-    db.select('*').from('users').where({
-        id: id
-    })
-    .then(user => {
-        if(user.length){
-            res.json(user[0]);
-        } else{
-            res.status(400).json('Not Found'); //checking for empty array of user(i.e no user)
-        }
-    })
-    .catch(err => res.status(400).json('Error getting user'))
-});
+//injecting dependency of handleProfile function 
+app.get('/profile/:id', (req, res) => { profile.handleProfile(req, res, db) });
 
 //updating user to increase Image entries count
-app.put('/image', (req, res) => {
-    //destructuring to get id varaible(property) from body
-    const { id } = req.body;
-    //using 'incrememnt' from knex docs
-    db('users').where('id', '=', id)
-    .increment('entries', 1)
-    .returning('entries')
-    .then(entries => {
-        res.json(entries[0].entries);
-    })
-    .catch(err => res.status(400).json('unable to get entries count'))
-});
+//injecting dependency of handleImage function 
+app.put('/image', (req, res) => { image.handleImage(req, res, db) });
+
+//post endpoint for image
+app.post('/imageurl', (req, res) => { image.handleApiCall(req, res) });
 
 //testing the server
 app.listen(3001, () => {
     console.log('app is running on port 3001');
 });
-
